@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0b0e13">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Sombra">
+  <title>Sombra</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <canvas id="stage" aria-label="Monigote de entrenamiento"></canvas>
+
+  <div id="glow-left" class="glow glow-left" aria-hidden="true"></div>
+  <div id="glow-right" class="glow glow-right" aria-hidden="true"></div>
+  <div id="glow-center" class="glow glow-center" aria-hidden="true"></div>
+  <div id="cue" class="cue" aria-live="polite"></div>
+  <div id="countdown" class="countdown" hidden></div>
+
+  <!-- Home -->
+  <section id="home" class="panel">
+    <header class="brand">
+      <h1>Sombra</h1>
+      <p>Un compañero que ginga y ataca cuando no te lo esperas.</p>
+    </header>
+
+    <div class="group">
+      <div class="label-row"><span class="label">Deporte</span></div>
+      <div class="chips">
+        <button class="chip on" type="button" disabled>Capoeira</button>
+        <button class="chip soon" type="button" disabled>Boxeo · pronto</button>
+      </div>
+    </div>
+
+    <div class="group">
+      <div class="label-row">
+        <span class="label">Movimientos</span>
+        <span id="moves-count" class="hint"></span>
+      </div>
+      <div id="moves" class="chips"></div>
+      <p class="hint">Cuantas más opciones, más tardas en reaccionar: empieza con 2 o 3 y ve añadiendo.</p>
+    </div>
+
+    <div class="group">
+      <div class="label-row"><label class="label" for="speed">Velocidad</label><output id="speed-out"></output></div>
+      <input id="speed" type="range" min="1" max="10" step="1">
+      <div class="scale"><span>lenta</span><span>rápida</span></div>
+    </div>
+
+    <div class="group">
+      <div class="label-row"><label class="label" for="frequency">Frecuencia</label><output id="frequency-out"></output></div>
+      <input id="frequency" type="range" min="1" max="10" step="1">
+      <div class="scale"><span>mucha ginga entre ataques</span><span>sin respiro</span></div>
+    </div>
+
+    <div class="group">
+      <div class="label-row"><span class="label">Duración</span></div>
+      <div id="duration" class="segmented" role="radiogroup">
+        <button type="button" data-v="60">1 min</button>
+        <button type="button" data-v="120">2 min</button>
+        <button type="button" data-v="180">3 min</button>
+        <button type="button" data-v="300">5 min</button>
+        <button type="button" data-v="0">Libre</button>
+      </div>
+    </div>
+
+    <div class="group">
+      <label class="switch">
+        <input id="help" type="checkbox">
+        <span class="track"><span class="thumb"></span></span>
+        <span><strong>Ayuda</strong> · nombre del movimiento y lado por el que viene</span>
+      </label>
+    </div>
+
+    <div class="group">
+      <div class="label-row"><span class="label">Monigote</span></div>
+      <div id="styles" class="swatches"></div>
+      <div class="label-row sub"><span class="label">Cordão</span></div>
+      <div id="cordoes" class="swatches small"></div>
+    </div>
+
+    <div class="actions">
+      <button id="start" class="primary" type="button">Empezar</button>
+      <button id="open-library" class="secondary" type="button">Ver los movimientos</button>
+    </div>
+    <p class="fine">Pon la pantalla a 2–3 m y despeja el espacio. Todo funciona sin conexión y nada sale de tu dispositivo.</p>
+  </section>
+
+  <!-- Training HUD -->
+  <div id="hud" class="hud" hidden>
+    <div id="timer" class="timer">0:00</div>
+    <div class="hud-buttons">
+      <button id="fullscreen" class="icon" type="button" aria-label="Pantalla completa" hidden>⤢</button>
+      <button id="pause" class="icon" type="button" aria-label="Pausa">❚❚</button>
+    </div>
+  </div>
+
+  <div id="paused" class="sheet" hidden>
+    <h2>En pausa</h2>
+    <div class="actions">
+      <button id="resume" class="primary" type="button">Seguir</button>
+      <button id="stop" class="secondary" type="button">Terminar</button>
+    </div>
+  </div>
+
+  <!-- Summary -->
+  <section id="summary" class="panel" hidden>
+    <header class="brand">
+      <h1>Hecho</h1>
+      <p id="summary-line"></p>
+    </header>
+    <table class="tally">
+      <thead><tr><th>Movimiento</th><th>Por tu izquierda</th><th>De frente</th><th>Por tu derecha</th></tr></thead>
+      <tbody id="summary-body"></tbody>
+    </table>
+    <div class="actions">
+      <button id="again" class="primary" type="button">Otra vez</button>
+      <button id="back-home" class="secondary" type="button">Volver</button>
+    </div>
+  </section>
+
+  <!-- Library -->
+  <section id="library" class="panel" hidden>
+    <header class="brand">
+      <h1>Movimientos</h1>
+      <p>Mira cada uno despacio. Así se ven desde donde estarás tú.</p>
+    </header>
+    <div id="library-list" class="list"></div>
+    <div class="group">
+      <div class="label-row"><span class="label">Lado</span></div>
+      <div id="library-side" class="segmented">
+        <button type="button" data-v="0" class="on">Original</button>
+        <button type="button" data-v="1">Espejo</button>
+      </div>
+    </div>
+    <div class="group">
+      <div class="label-row"><span class="label">Cámara lenta</span></div>
+      <div id="library-rate" class="segmented">
+        <button type="button" data-v="0.25">×¼</button>
+        <button type="button" data-v="0.5" class="on">×½</button>
+        <button type="button" data-v="1">×1</button>
+      </div>
+    </div>
+    <p id="library-info" class="hint"></p>
+    <div class="actions">
+      <button id="close-library" class="secondary" type="button">Volver</button>
+    </div>
+  </section>
+
+  <script type="module" src="src/ui/app.js"></script>
+</body>
+</html>
