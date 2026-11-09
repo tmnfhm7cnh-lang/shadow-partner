@@ -12,7 +12,7 @@
  * The responses to each move belong to the coach (Daniel); `responses` is left empty on purpose.
  */
 
-import { W, L } from '../pose.js';
+import { W, L, completeKeys } from '../pose.js';
 
 /** Guard hands (pelvis-local), reused by several moves. */
 const GUARD_L = L(0.26, 0.42, 0.3);
@@ -52,6 +52,32 @@ export const GINGA = [
 /** Phase of the ginga with the right foot back (0.25) — kicks with the right leg leave from here. */
 const RIGHT_BACK = 0.25;
 const PARALLEL = 0;
+
+/**
+ * Bananeira keys from its way in. `entry`: keys from the ginga up to the handstand (last key = the
+ * handstand reached, with scissored legs); `hold`: where the pelvis stays while it is held.
+ * The way out is the way in played backwards (t → 1 − t), the hold is a long, slightly swaying
+ * banana: legs together, opening a little and back.
+ */
+function bananeiraKeys(entry, [px, py, pz], [ry, rp, rr], bodyKnees = false) {
+  // bodyKnees: the knees bend towards the front of the BODY (upside down that is not the figure's
+  // facing direction, and a leg swinging through the horizontal would flip its knee)
+  const done = completeKeys(bodyKnees ? entry.map((k) => (k.r[1] > 120 ? { ...k, lk: L(0.2, 0, 1), rk: L(-0.2, 0, 1) } : k)) : entry);
+  const out = done.map((k) => ({ ...k }));
+  const at = (t, dyaw, dpitch, a, b) => ({
+    t, p: [px, py, pz], r: [ry + dyaw, rp + dpitch, rr], s: [0, dpitch * 1.5, 0], lf: a, rf: b,
+  });
+  out.push(
+    at(0.26, 0, 0, L(0.12, -0.87, 0.04), L(-0.12, -0.87, 0.04)),
+    at(0.43, 0, 2, L(0.1, -0.84, 0.2), L(-0.1, -0.84, -0.16)),
+    at(0.6, 0, -2, L(0.1, -0.84, -0.14), L(-0.1, -0.84, 0.18)),
+    at(0.74, 0, 0, L(0.12, -0.87, 0.04), L(-0.12, -0.87, 0.04)),
+  );
+  for (const k of done.slice().reverse()) out.push({ ...k, t: Math.round((1 - k.t) * 100) / 100 });
+  return out;
+}
+
+/** Handstand hands for the entries that go up facing a direction (shoulder-width, planted). */
 
 export const MOVES = [
   {
@@ -343,10 +369,12 @@ export const MOVES = [
     // top speed: the weight is small on purpose, so only the way in and out get quicker.
     tempoWeight: 0.16,
     chainIn: false, // entering a handstand needs the ginga's stance: it never comes in the middle of a sequence
+    // Three ways in, drawn at random (the coach's list): 'wheel', 'side' and 'back' (see `alt`).
+    // Mirrored: each goes up on either side.
+    entry: 'wheel',
     // Half a wheel to the side (the first half of the au), up into the handstand facing the user,
     // a long hold with the legs opening a little like a banana, and back down the way it came.
-    // Mirrored: it goes up on either side.
-    keys: [
+    keys: bananeiraKeys([
       {
         t: 0.05,
         p: [0.15, 0.84, 0], r: [0, 0, -12], s: [0, 0, -5],
@@ -365,42 +393,73 @@ export const MOVES = [
         lf: L(0.55, -0.63, 0.02), rf: L(-0.55, -0.63, 0.02),
         lh: W(0.62, 0.03, 0.02), rh: W(1.1, 0.03, 0.02),
       },
+    ], [0.86, 1.12, 0], [0, 0, -180]),
+    alt: [
       {
-        t: 0.24,
-        p: [0.86, 1.12, 0], r: [0, 0, -180], s: [0, 0, 0],
-        lf: L(0.12, -0.87, 0.04), rf: L(-0.12, -0.87, 0.04),
+        // Side-on to the rival: a kick-up in the plane that runs across the user's view. The head
+        // looks back at the rival over the shoulder (neck limits, secondary.js).
+        entry: 'side',
+        duration: 6.2,
+        keys: bananeiraKeys([
+          {
+            t: 0.05,
+            p: [0.2, 0.76, 0], r: [90, 30, 0], s: [0, 8, 0],
+            lf: W(0.4, 0.08, -0.12), rf: W(-0.18, 0.08, 0.12),
+            lh: L(0.3, 0.5, 0.3), rh: L(-0.3, 0.5, 0.3),
+          },
+          {
+            t: 0.1,
+            p: [0.45, 0.62, 0], r: [90, 100, 0], s: [0, 0, 0],
+            lf: W(0.58, 0.08, -0.12), rf: W(-0.12, 0.08, 0.12),
+            lh: W(0.98, 0.03, -0.19), rh: W(0.98, 0.03, 0.19),
+          },
+          {
+            t: 0.14,
+            p: [0.72, 0.88, 0], r: [90, 142, 0], s: [0, 0, 0],
+            lf: L(0.1, -0.78, 0.2), rf: L(-0.1, -0.78, -0.35),
+          },
+          {
+            t: 0.19,
+            p: [0.98, 1.12, 0], r: [90, 180, 0], s: [0, 0, 0],
+            lf: L(0.1, -0.76, 0.34), rf: L(-0.1, -0.76, -0.3),
+          },
+        ], [0.98, 1.12, 0], [90, 180, 0], true),
       },
       {
-        t: 0.42,
-        p: [0.86, 1.12, 0], r: [0, 2, -179], s: [0, 3, 0],
-        lf: L(0.1, -0.84, 0.2), rf: L(-0.1, -0.84, -0.16),
-      },
-      {
-        t: 0.6,
-        p: [0.86, 1.12, 0], r: [0, -2, -181], s: [0, -2, 0],
-        lf: L(0.1, -0.84, -0.14), rf: L(-0.1, -0.84, 0.18),
-      },
-      {
-        t: 0.76,
-        p: [0.86, 1.12, 0], r: [0, 0, -180], s: [0, 0, 0],
-        lf: L(0.12, -0.87, 0.04), rf: L(-0.12, -0.87, 0.04),
-      },
-      {
-        t: 0.83,
-        p: [0.86, 1.12, 0], r: [0, 0, -180], s: [0, 0, 0],
-        lf: L(0.55, -0.63, 0.02), rf: L(-0.55, -0.63, 0.02),
-      },
-      {
-        t: 0.9,
-        p: [0.18, 0.72, 0], r: [0, 0, -50], s: [0, 0, -30],
-        lf: W(0.48, 0.08, 0.02), rf: L(-0.62, -0.58, 0.02),
-        lh: W(0.62, 0.03, 0.02), rh: L(-0.3, 1.0, 0),
-      },
-      {
-        t: 0.95,
-        p: [0.15, 0.84, 0], r: [0, 0, -12], s: [0, 0, -5],
-        lf: W(0.48, 0.08, 0.02), rf: W(-0.2, 0.08, 0.02),
-        lh: L(0.35, 1.05, 0.05), rh: L(-0.35, 1.05, 0.05),
+        // Back to the rival to go up (a quick turn), up with the hands away from the user; once
+        // upside down the chest and the face point at him.
+        entry: 'back',
+        duration: 6.4,
+        keys: bananeiraKeys([
+          {
+            t: 0.04,
+            p: [0, 0.8, 0], r: [90, 10, 0], s: [0, 4, 0],
+            lf: W(0, 0.08, -0.22), rf: W(0, 0.08, 0.22),
+            lh: L(0.28, 0.36, 0.3), rh: L(-0.28, 0.36, 0.3),
+          },
+          {
+            t: 0.08,
+            p: [0, 0.76, -0.1], r: [180, 32, 0], s: [0, 8, 0],
+            lf: W(-0.2, 0.08, -0.08), rf: W(0.2, 0.08, 0.08),
+            lh: L(0.3, 0.5, 0.3), rh: L(-0.3, 0.5, 0.3),
+          },
+          {
+            t: 0.12,
+            p: [0, 0.62, -0.45], r: [180, 100, 0], s: [0, 0, 0],
+            lf: W(-0.14, 0.08, -0.58), rf: W(0.12, 0.08, 0.12),
+            lh: W(-0.19, 0.03, -0.98), rh: W(0.19, 0.03, -0.98),
+          },
+          {
+            t: 0.16,
+            p: [0, 0.88, -0.72], r: [180, 142, 0], s: [0, 0, 0],
+            lf: L(0.1, -0.78, 0.2), rf: L(-0.1, -0.78, -0.35),
+          },
+          {
+            t: 0.21,
+            p: [0, 1.12, -0.98], r: [180, 180, 0], s: [0, 0, 0],
+            lf: L(0.1, -0.76, 0.34), rf: L(-0.1, -0.76, -0.3),
+          },
+        ], [0, 1.12, -0.98], [180, 180, 0], true),
       },
     ],
   },

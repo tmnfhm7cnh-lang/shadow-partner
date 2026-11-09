@@ -48,6 +48,9 @@ Optional fields on a move:
 
 - `tempoWeight` (default 1): how much the move follows the speed control. A wheel or a handstand
   has a physical floor on how fast it can be done, so it follows only partly (au 0.35).
+- `alt: [...]`: other ways of doing the same move (own `keys`, `duration`, `entry` name). Each becomes
+  variants of the move (and their mirrors) and is drawn like any other: the bananeira goes up as half
+  a lateral wheel, side-on, or turning its back first.
 - `chainIn: false`: the move cannot come in the middle of a sequence (a handstand needs the ginga's
   stance); it opens the next sequence instead.
 

@@ -1,6 +1,6 @@
 /* Offline cache. Bump CACHE on every change, or installed copies keep the old version. */
 const PREFIX = 'shadow-partner-';
-const CACHE = `${PREFIX}v4`;
+const CACHE = `${PREFIX}v5`;
 
 /* Without these the app does not run: if one is missing the install must fail loudly. */
 const CORE = [

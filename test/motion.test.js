@@ -200,6 +200,7 @@ const hangtime = (speed, variant) => {
   let facing = 0;
   let n = 0;
   let sideX = 0;
+  let farZ = 0;
   let sawStart = false;
   for (let i = 0; i < 12 * 60; i++) {
     engine.update(DT);
@@ -215,21 +216,38 @@ const hangtime = (speed, variant) => {
       n++;
     }
     if (Math.abs(joints.pelvis[0]) > Math.abs(sideX)) sideX = joints.pelvis[0];
+    if (up && Math.abs(joints.pelvis[2]) > Math.abs(farZ)) farZ = joints.pelvis[2];
   }
-  return { inverted, facing: n ? facing / n : 0, sideX };
+  return { inverted, facing: n ? facing / n : 0, sideX, farZ };
 };
 
-test('bananeira: upside down for at least 3 s at any speed, facing the user, to the side of where it started', () => {
+test('bananeira: three entries, each upside down for at least 3 s at any speed with the head on the user', () => {
+  const entries = new Set(lib.byMove('bananeira').map((v) => v.entry));
+  assert.deepEqual([...entries].sort(), ['back', 'side', 'wheel'], 'the three ways in the coach described');
   for (const variant of lib.byMove('bananeira')) {
     for (let speed = 1; speed <= 10; speed++) {
-      const { inverted, facing, sideX } = hangtime(speed, variant);
+      const { inverted, facing, sideX, farZ } = hangtime(speed, variant);
       assert.ok(inverted >= 3.0, `${variant.variantId} speed ${speed}: only ${inverted.toFixed(2)} s on its hands`);
       assert.ok(facing > 0.6, `${variant.variantId} speed ${speed}: head faces the user only ${facing.toFixed(2)}`);
-      assert.ok(Math.abs(sideX) > 0.6, 'it goes up on a half wheel to the side, not on the spot');
+      if (variant.entry === 'back') assert.ok(Math.abs(farZ) > 0.6, 'goes up away from the user, back to him');
+      else assert.ok(Math.abs(sideX) > 0.6, `${variant.variantId}: goes up to the side, not on the spot`);
     }
   }
-  const [a, b] = lib.byMove('bananeira');
-  assert.notEqual(Math.sign(hangtime(5, a).sideX), Math.sign(hangtime(5, b).sideX), 'one goes up on each side');
+  for (const entry of ['wheel', 'side']) {
+    const [a, b] = lib.byMove('bananeira').filter((v) => v.entry === entry);
+    assert.notEqual(Math.sign(hangtime(5, a).sideX), Math.sign(hangtime(5, b).sideX), `${entry}: one goes up on each side`);
+  }
+});
+
+test('bananeira: the draw picks every way in, on both sides', () => {
+  const sched = createScheduler(lib, { active: ['bananeira'], seed: 11 });
+  const seen = new Map();
+  for (let i = 0; i < 300; i++) {
+    const v = sched.next();
+    seen.set(v.variantId, (seen.get(v.variantId) ?? 0) + 1);
+  }
+  assert.equal(seen.size, 6, [...seen.keys()].join(' '));
+  for (const [id, n] of seen) assert.ok(n > 25, `${id} drawn only ${n} times of 300`);
 });
 
 test('bananeira: back to the ginga where it started (no drift)', () => {

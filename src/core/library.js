@@ -40,7 +40,8 @@ function buildVariant(move, keys, mirrored) {
     keys,
     mirrored,
   };
-  v.variantId = `${move.id}${mirrored ? ':m' : ''}`;
+  v.entry = move.entry;
+  v.variantId = `${move.id}${move.entry && move.entry !== move.entryDefault ? `.${move.entry}` : ''}${mirrored ? ':m' : ''}`;
   v.label = variantLabel(v);
   return v;
 }
@@ -48,10 +49,15 @@ function buildVariant(move, keys, mirrored) {
 /** All variants of a sport pack, plus the completed base loop. */
 export function buildLibrary(sport) {
   const variants = [];
-  for (const move of sport.moves) {
-    const keys = completeKeys(move.keys);
-    variants.push(buildVariant(move, keys, false));
-    if (move.mirror !== false) variants.push(buildVariant(move, mirrorKeys(keys), true));
+  for (const base of sport.moves) {
+    // a move may list `alt`: other ways of doing it (own keys / duration), drawn like any variant
+    const forms = [{ ...base, alt: undefined, entryDefault: base.entry }];
+    for (const a of base.alt ?? []) forms.push({ ...base, ...a, alt: undefined, entryDefault: base.entry });
+    for (const move of forms) {
+      const keys = completeKeys(move.keys);
+      variants.push(buildVariant(move, keys, false));
+      if (move.mirror !== false) variants.push(buildVariant(move, mirrorKeys(keys), true));
+    }
   }
   return {
     sport,
