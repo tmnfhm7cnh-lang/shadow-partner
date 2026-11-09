@@ -27,8 +27,11 @@ point of view and in profile, to review key poses.
   - `moves/capoeira.js` — the ginga and the moves, authored once per side.
   - `library.js` — builds playable variants (mirrors, labels in the user's frame).
   - `scheduler.js` — seeded random choice: active moves only, no long repeats, sides balanced.
-  - `tempo.js` — speed / frequency controls (1–10) → timings.
-  - `engine.js` — the clock: base loop, launch windows, move playback, return to the base.
+  - `tempo.js` — speed / frequency controls (1–10) → timings; per-move sensitivity to speed.
+  - `engine.js` — the clock: base loop, launch windows, move playback, return to the base, and
+    sequences (moves chained with no ginga between them, then a gap of ginga).
+  - `secondary.js` — secondary motion on top of the authored pose: the head looks at the user and
+    stays level, chest / hands / feet follow with a small lag (limbs on the floor never move).
 - `src/render/` — perspective camera and canvas renderer (stage, shadow, depth-sorted limbs).
 - `src/ui/` — screens, wake lock, fullscreen, audio cues.
 
@@ -39,6 +42,13 @@ Write its key poses in a pack (see the header of `src/core/pose.js` for the form
 it announces is the side the animation actually comes from, that nothing goes through the floor,
 that planted hands and feet really reach the floor and that nothing teleports between frames.
 
+Optional fields on a move:
+
+- `tempoWeight` (default 1): how much the move follows the speed control. A wheel or a handstand
+  has a physical floor on how fast it can be done, so it follows only partly (au 0.35).
+- `chainIn: false`: the move cannot come in the middle of a sequence (a handstand needs the ginga's
+  stance); it opens the next sequence instead.
+
 ## Publishing
 
 Bump `CACHE` in `sw.js` on every change, or installed copies keep serving the old version.
@@ -46,5 +56,6 @@ Bump `CACHE` in `sw.js` on every change, or installed copies keep serving the ol
 
 ## Status
 
-Key poses were authored from technical descriptions, not traced from video. The responses to each
+Key poses were authored from technical descriptions, not traced from video. Secondary motion
+(head, lags) is procedural, tuned by eye on a desktop browser, not on a device. The responses to each
 move are the coach's to define and are deliberately absent from the data.

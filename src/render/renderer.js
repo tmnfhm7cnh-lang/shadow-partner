@@ -5,7 +5,7 @@
  */
 
 import { createCamera } from './camera.js';
-import { normalize, clamp } from '../core/math.js';
+import { normalize, clamp, add, sub, scale, dot, matVec } from '../core/math.js';
 
 export const STYLES = {
   abada: { name: 'Abadá', shirt: '#f1ede4', pants: '#f6f3ec', skin: '#c68a5a', outline: '#0b0e14' },
@@ -20,6 +20,9 @@ export const CORDAO = {
 };
 
 const LIGHT = normalize([0.35, -1, -0.45]);
+const HAIR = '#2a1d16';
+const IDENTITY = [1, 0, 0, 0, 1, 0, 0, 0, 1];
+const smooth = (x) => { const k = clamp(x, 0, 1); return k * k * (3 - 2 * k); };
 
 function shade(hex, k) {
   // k > 0 lightens, k < 0 darkens (−1..1).
@@ -158,7 +161,73 @@ export function createRenderer(canvas) {
     ctx.restore();
   }
 
-  function drawFigure(cam, J, style, cordao) {
+  /**
+   * Face painted on the head sphere. Seen from the front: eyes and a smile. From behind: hair.
+   * From the side: half and half, so you can always tell which way the figure is looking.
+   */
+  function drawFace(cam, center, screen, r, M, style) {
+    const fwd = matVec(M, [0, 0, 1]);
+    const up = matVec(M, [0, 1, 0]);
+    const right = matVec(M, [1, 0, 0]);
+    const toCam = normalize(sub(cam.eye, center));
+    const facing = dot(fwd, toCam);
+    const R = 0.108;
+    const onSphere = (x, y) => {
+      const z = Math.sqrt(Math.max(0, R * R - x * x - y * y));
+      return add(add(add(center, scale(right, x)), scale(up, y)), scale(fwd, z));
+    };
+    const visible = (pt) => smooth(dot(normalize(sub(pt, center)), toCam) / 0.35);
+
+    // Hair: a cap on the back of the head, clipped to the head's disc.
+    const hairAlpha = smooth((0.35 - facing) / 0.6);
+    if (hairAlpha > 0.01) {
+      const ahead = cam.project(add(center, scale(fwd, 0.1)));
+      const sx = ahead.x - screen.x, sy = ahead.y - screen.y;
+      const len = Math.hypot(sx, sy) || 1;
+      const shift = Math.min(1, len / cam.size(0.1, screen.z)) * r * 0.5;
+      ctx.save();
+      ctx.beginPath(); ctx.arc(screen.x, screen.y, r, 0, Math.PI * 2); ctx.clip();
+      ctx.globalAlpha = hairAlpha;
+      ctx.fillStyle = HAIR;
+      ctx.beginPath();
+      ctx.arc(screen.x - (sx / len) * shift, screen.y - (sy / len) * shift - r * 0.04, r * 1.02, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
+
+    const ink = style.outline;
+    // Eyes.
+    for (const side of [-1, 1]) {
+      const pt = onSphere(side * 0.04, 0.02);
+      const a = visible(pt);
+      if (a < 0.02) continue;
+      const p = cam.project(pt);
+      ctx.globalAlpha = a;
+      ctx.fillStyle = ink;
+      ctx.beginPath();
+      ctx.ellipse(p.x, p.y, cam.size(0.0125, p.z), cam.size(0.017, p.z), 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    // Smile: corners higher than the middle.
+    const mid = onSphere(0, -0.045);
+    const am = visible(mid);
+    if (am > 0.02) {
+      ctx.globalAlpha = am;
+      ctx.strokeStyle = ink;
+      ctx.lineWidth = Math.max(1.2, cam.size(0.0075, screen.z));
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      for (let i = 0; i <= 8; i++) {
+        const k = (i / 8) * 2 - 1;
+        const p = cam.project(onSphere(k * 0.04, -0.03 - 0.018 * (1 - k * k)));
+        if (i) ctx.lineTo(p.x, p.y); else ctx.moveTo(p.x, p.y);
+      }
+      ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  function drawFigure(cam, J, style, cordao, headM) {
     const P = {};
     for (const [n, p] of Object.entries(J)) P[n] = cam.project(p);
     const zRef = P.pelvis.z;
@@ -232,6 +301,7 @@ export function createRenderer(canvas) {
       g.addColorStop(1, tone(style.skin, head.z));
       ctx.fillStyle = g;
       ctx.beginPath(); ctx.arc(head.x, head.y, r, 0, Math.PI * 2); ctx.fill();
+      drawFace(cam, J.head, head, r, headM ?? IDENTITY, style);
     } });
 
     items.sort((a, b) => b.z - a.z);
@@ -247,13 +317,13 @@ export function createRenderer(canvas) {
     fit,
     get size() { return { w, h }; },
     /** joints: from computeJoints; camX: camera's x; focusX: where the spotlight sits. */
-    render(joints, { camX = 0, focusX = 0, viewLeft = 0, viewBottom = 0, style = STYLES.abada, cordao = CORDAO.amarelo } = {}) {
+    render(joints, { headM = null, camX = 0, focusX = 0, viewLeft = 0, viewBottom = 0, style = STYLES.abada, cordao = CORDAO.amarelo } = {}) {
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       const cam = createCamera({ width: w, height: h, targetX: camX, viewLeft, viewBottom });
       drawStage(cam, focusX);
       drawShadow(cam, joints);
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      drawFigure(cam, joints, style, cordao);
+      drawFigure(cam, joints, style, cordao, headM);
     },
   };
 }

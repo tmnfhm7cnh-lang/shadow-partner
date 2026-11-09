@@ -1,6 +1,6 @@
 /* Offline cache. Bump CACHE on every change, or installed copies keep the old version. */
 const PREFIX = 'shadow-partner-';
-const CACHE = `${PREFIX}v2`;
+const CACHE = `${PREFIX}v3`;
 
 /* Without these the app does not run: if one is missing the install must fail loudly. */
 const CORE = [
@@ -14,6 +14,7 @@ const CORE = [
   './src/core/moves/capoeira.js',
   './src/core/pose.js',
   './src/core/scheduler.js',
+  './src/core/secondary.js',
   './src/core/skeleton.js',
   './src/core/tempo.js',
   './src/render/camera.js',
