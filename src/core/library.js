@@ -33,6 +33,7 @@ function buildVariant(move, keys, mirrored) {
     duration: move.duration,
     tempoWeight: move.tempoWeight ?? 1,
     chainIn: move.chainIn !== false,
+    hipDrive: move.hipDrive === true,
     endOffset: move.endOffset
       ? (mirrored ? [-move.endOffset[0], move.endOffset[1], move.endOffset[2]] : move.endOffset)
       : [0, 0, 0],

@@ -149,6 +149,9 @@ export function createEngine(library, {
     return evalMove(variant.keys, Math.min(m.uEnd, e / m.dur), anchor, () => from, toBase);
   }
 
+  /** Kicks involve the hips (see secondary.js); the ginga and the rest do not. */
+  const hipDrive = () => s.mode === 'move' && s.move.variant.hipDrive === true;
+
   /** How much slower than the reference the thing on screen is moving (scales the secondary lags). */
   function timeScale() {
     if (s.mode === 'base') return tm.period / library.sport.basePeriod;
@@ -188,11 +191,11 @@ export function createEngine(library, {
         && s.pending.launchPhases.some((p) => crossed(prev, s.phase, p))) {
         launch(s.pending);
       }
-      s.shown = secondary.apply(rawPose(), dt, timeScale());
+      s.shown = secondary.apply(rawPose(), dt, timeScale(), hipDrive());
     },
     /** The pose to draw: authored pose plus secondary motion (head gaze, lagging limbs). */
     pose() {
-      return s.shown ?? secondary.apply(rawPose(), 0, timeScale());
+      return s.shown ?? secondary.apply(rawPose(), 0, timeScale(), hipDrive());
     },
     /** The authored pose alone, without secondary motion. */
     rawPose,

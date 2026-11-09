@@ -101,6 +101,7 @@ export const MOVES = [
   },
   {
     id: 'meia-lua-de-frente',
+    hipDrive: true, // the hips take part in the kick (secondary.js)
     name: 'Meia-lua de frente',
     kind: 'attack',
     height: 'high',
@@ -139,6 +140,7 @@ export const MOVES = [
   },
   {
     id: 'queixada',
+    hipDrive: true, // the hips take part in the kick (secondary.js)
     name: 'Queixada',
     kind: 'attack',
     height: 'high',
@@ -177,6 +179,7 @@ export const MOVES = [
   },
   {
     id: 'martelo',
+    hipDrive: true, // the hips take part in the kick (secondary.js)
     name: 'Martelo',
     kind: 'attack',
     height: 'high',
@@ -210,6 +213,7 @@ export const MOVES = [
   },
   {
     id: 'bencao',
+    hipDrive: true, // the hips take part in the kick (secondary.js)
     name: 'Bênção',
     kind: 'attack',
     height: 'mid',
@@ -333,45 +337,70 @@ export const MOVES = [
     kind: 'floreio',
     height: 'low',
     arrivesFrom: 'center',
-    mirror: false,
     launchPhases: [PARALLEL, 0.5],
-    duration: 3.6,
-    tempoWeight: 0.4,
+    duration: 5.8,
+    // The handstand itself is held ~3.4 s at the reference speed and never less than 3 s, even at
+    // top speed: the weight is small on purpose, so only the way in and out get quicker.
+    tempoWeight: 0.16,
     chainIn: false, // entering a handstand needs the ginga's stance: it never comes in the middle of a sequence
+    // Half a wheel to the side (the first half of the au), up into the handstand facing the user,
+    // a long hold with the legs opening a little like a banana, and back down the way it came.
+    // Mirrored: it goes up on either side.
     keys: [
       {
-        t: 0.12,
-        p: [0, 0.6, 0], r: [0, 60, 0], s: [0, 40, 0],
-        lf: W(0.2, 0.08, -0.12), rf: W(-0.2, 0.08, -0.12),
-        lh: W(0.2, 0.03, 0.45), rh: W(-0.2, 0.03, 0.45),
+        t: 0.05,
+        p: [0.15, 0.84, 0], r: [0, 0, -12], s: [0, 0, -5],
+        lf: W(0.48, 0.08, 0.02), rf: W(-0.2, 0.08, 0.02),
+        lh: L(0.35, 1.05, 0.05), rh: L(-0.35, 1.05, 0.05),
       },
       {
-        t: 0.25,
-        p: [0, 0.95, 0.3], r: [0, 135, 0], s: [0, 25, 0],
-        lf: L(0.12, -0.5, 0.55), rf: L(-0.1, -0.86, 0),
+        t: 0.1,
+        p: [0.18, 0.72, 0], r: [0, 0, -50], s: [0, 0, -30],
+        lf: W(0.48, 0.08, 0.02), rf: L(-0.62, -0.58, 0.02),
+        lh: W(0.62, 0.03, 0.02), rh: L(-0.3, 1.0, 0),
       },
       {
-        t: 0.37,
-        p: [0, 1.1, 0.45], r: [0, 172, 0], s: [0, 8, 0],
-        lf: L(0.13, -0.86, 0.05), rf: L(-0.13, -0.86, 0.05),
+        t: 0.17,
+        p: [0.86, 1.12, 0], r: [0, 0, -180], s: [0, 0, 0],
+        lf: L(0.55, -0.63, 0.02), rf: L(-0.55, -0.63, 0.02),
+        lh: W(0.62, 0.03, 0.02), rh: W(1.1, 0.03, 0.02),
       },
       {
-        t: 0.54,
-        p: [0.01, 1.11, 0.45], r: [0, 177, 2], s: [0, 5, 0],
+        t: 0.24,
+        p: [0.86, 1.12, 0], r: [0, 0, -180], s: [0, 0, 0],
+        lf: L(0.12, -0.87, 0.04), rf: L(-0.12, -0.87, 0.04),
       },
       {
-        t: 0.7,
-        p: [-0.01, 1.1, 0.45], r: [0, 171, -2], s: [0, 8, 0],
+        t: 0.42,
+        p: [0.86, 1.12, 0], r: [0, 2, -179], s: [0, 3, 0],
+        lf: L(0.1, -0.84, 0.2), rf: L(-0.1, -0.84, -0.16),
       },
       {
-        t: 0.8,
-        p: [0, 0.95, 0.3], r: [0, 130, 0], s: [0, 25, 0],
-        lf: L(0.12, -0.6, 0.5), rf: L(-0.12, -0.6, 0.5),
+        t: 0.6,
+        p: [0.86, 1.12, 0], r: [0, -2, -181], s: [0, -2, 0],
+        lf: L(0.1, -0.84, -0.14), rf: L(-0.1, -0.84, 0.18),
+      },
+      {
+        t: 0.76,
+        p: [0.86, 1.12, 0], r: [0, 0, -180], s: [0, 0, 0],
+        lf: L(0.12, -0.87, 0.04), rf: L(-0.12, -0.87, 0.04),
+      },
+      {
+        t: 0.83,
+        p: [0.86, 1.12, 0], r: [0, 0, -180], s: [0, 0, 0],
+        lf: L(0.55, -0.63, 0.02), rf: L(-0.55, -0.63, 0.02),
       },
       {
         t: 0.9,
-        p: [0, 0.64, 0.02], r: [0, 55, 0], s: [0, 35, 0],
-        lf: W(0.2, 0.08, -0.15), rf: W(-0.2, 0.08, -0.15),
+        p: [0.18, 0.72, 0], r: [0, 0, -50], s: [0, 0, -30],
+        lf: W(0.48, 0.08, 0.02), rf: L(-0.62, -0.58, 0.02),
+        lh: W(0.62, 0.03, 0.02), rh: L(-0.3, 1.0, 0),
+      },
+      {
+        t: 0.95,
+        p: [0.15, 0.84, 0], r: [0, 0, -12], s: [0, 0, -5],
+        lf: W(0.48, 0.08, 0.02), rf: W(-0.2, 0.08, 0.02),
+        lh: L(0.35, 1.05, 0.05), rh: L(-0.35, 1.05, 0.05),
       },
     ],
   },

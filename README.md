@@ -32,6 +32,8 @@ point of view and in profile, to review key poses.
     sequences (moves chained with no ginga between them, then a gap of ginga).
   - `secondary.js` — secondary motion on top of the authored pose: the head looks at the user and
     stays level, chest / hands / feet follow with a small lag (limbs on the floor never move).
+    In kicks the hips take part too: weight over the standing leg, pelvis opens towards the
+    kicking leg, trunk leans away from it.
 - `src/render/` — perspective camera and canvas renderer (stage, shadow, depth-sorted limbs).
 - `src/ui/` — screens, wake lock, fullscreen, audio cues.
 

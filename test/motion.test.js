@@ -179,7 +179,7 @@ test('secondary motion never moves a limb that is on the floor, and never strays
     }
   });
   assert.ok(planted > 1000);
-  assert.ok(maxStray < 0.25, `a limb lagged ${maxStray.toFixed(3)} m behind its authored position`);
+  assert.ok(maxStray < 0.4, `a limb strayed ${maxStray.toFixed(3)} m from its authored position`);
 });
 
 test('secondary motion is deterministic: same seed and dt, same pose', () => {
@@ -189,4 +189,105 @@ test('secondary motion is deterministic: same seed and dt, same pose', () => {
     return out;
   };
   assert.equal(snap(), snap());
+});
+
+// ── bananeira: half a wheel up, facing the user, a long hold ──────────────
+
+const hangtime = (speed, variant) => {
+  const engine = createEngine(lib, { speed });
+  engine.trigger(variant);
+  let inverted = 0;
+  let facing = 0;
+  let n = 0;
+  let sideX = 0;
+  let sawStart = false;
+  for (let i = 0; i < 12 * 60; i++) {
+    engine.update(DT);
+    if (engine.state.mode === 'move') sawStart = true;
+    if (sawStart && engine.state.mode === 'base') break;
+    const pose = engine.pose();
+    const { joints, headM } = computeJoints(pose);
+    const up = joints.lFoot[1] > 1.5 && joints.rFoot[1] > 1.5 && joints.pelvis[1] > 0.9;
+    if (up) {
+      inverted += DT;
+      const fwd = matVec(headM, [0, 0, 1]);
+      facing += fwd[2];
+      n++;
+    }
+    if (Math.abs(joints.pelvis[0]) > Math.abs(sideX)) sideX = joints.pelvis[0];
+  }
+  return { inverted, facing: n ? facing / n : 0, sideX };
+};
+
+test('bananeira: upside down for at least 3 s at any speed, facing the user, to the side of where it started', () => {
+  for (const variant of lib.byMove('bananeira')) {
+    for (let speed = 1; speed <= 10; speed++) {
+      const { inverted, facing, sideX } = hangtime(speed, variant);
+      assert.ok(inverted >= 3.0, `${variant.variantId} speed ${speed}: only ${inverted.toFixed(2)} s on its hands`);
+      assert.ok(facing > 0.6, `${variant.variantId} speed ${speed}: head faces the user only ${facing.toFixed(2)}`);
+      assert.ok(Math.abs(sideX) > 0.6, 'it goes up on a half wheel to the side, not on the spot');
+    }
+  }
+  const [a, b] = lib.byMove('bananeira');
+  assert.notEqual(Math.sign(hangtime(5, a).sideX), Math.sign(hangtime(5, b).sideX), 'one goes up on each side');
+});
+
+test('bananeira: back to the ginga where it started (no drift)', () => {
+  for (const variant of lib.byMove('bananeira')) {
+    const engine = createEngine(lib, { speed: 5 });
+    engine.trigger(variant);
+    for (let i = 0; i < 10 * 60; i++) engine.update(DT);
+    assert.equal(engine.state.mode, 'base');
+    assert.deepEqual(engine.state.anchor, [0, 0, 0]);
+  }
+});
+
+// ── hips in the kicks ───────────────────────────────────────────────────────
+
+test('hip drive: kicks move the hips (weight over the standing leg, pelvis opens); other moves leave them alone', () => {
+  const kicks = new Set(CAPOEIRA.moves.filter((m) => m.hipDrive).map((m) => m.id));
+  assert.ok(kicks.has('meia-lua-de-frente') && kicks.has('queixada'), 'the straight kicks use it');
+  assert.ok(!kicks.has('au') && !kicks.has('armada') && !kicks.has('bananeira'), 'wheels, spins and handstands do not');
+  for (const variant of lib.variants) {
+    const engine = createEngine(lib, { speed: 5 });
+    engine.trigger(variant);
+    let maxShift = 0;
+    let maxYaw = 0;
+    let maxRoll = 0;
+    for (let i = 0; i < 8 * 60; i++) {
+      engine.update(DT);
+      const raw = engine.rawPose();
+      const shown = engine.pose();
+      maxShift = Math.max(maxShift, Math.hypot(shown.root.p[0] - raw.root.p[0], shown.root.p[2] - raw.root.p[2]));
+      maxYaw = Math.max(maxYaw, Math.abs(shown.root.r[0] - raw.root.r[0]));
+      maxRoll = Math.max(maxRoll, Math.abs(shown.root.r[2] - raw.root.r[2]));
+    }
+    if (variant.hipDrive) {
+      assert.ok(maxShift > 0.05 && maxShift <= 0.15, `${variant.variantId}: pelvis shifted ${maxShift.toFixed(3)} m`);
+      const sweeping = ['meia-lua-de-frente', 'queixada', 'martelo'].includes(variant.moveId); // a straight push kick (bencao) opens the hip little
+      assert.ok(maxYaw > (sweeping ? 8 : 3) && maxYaw <= 27, `${variant.variantId}: hip yaw ${maxYaw.toFixed(1)}°`);
+      assert.ok(maxRoll > 2 && maxRoll <= 12, `${variant.variantId}: lean ${maxRoll.toFixed(1)}°`);
+    } else {
+      assert.equal(maxShift, 0, `${variant.variantId} must not move the hips`);
+      assert.equal(maxYaw, 0, variant.variantId);
+    }
+  }
+});
+
+test('hip drive: the kick still reaches the height it was authored for (the hips carry the leg, not replace it)', () => {
+  for (const id of ['meia-lua-de-frente', 'queixada', 'martelo']) {
+    const variant = lib.byMove(id)[0];
+    const engine = createEngine(lib, { speed: 5 });
+    engine.trigger(variant);
+    let peakRaw = 0;
+    let peakShown = 0;
+    for (let i = 0; i < 5 * 60; i++) {
+      engine.update(DT);
+      const raw = computeJoints(engine.rawPose()).joints;
+      const shown = computeJoints(engine.pose()).joints;
+      peakRaw = Math.max(peakRaw, raw.rFoot[1]);
+      peakShown = Math.max(peakShown, shown.rFoot[1]);
+    }
+    assert.ok(Math.abs(peakShown - peakRaw) < 0.12, `${id}: kick height ${peakRaw.toFixed(2)} → ${peakShown.toFixed(2)}`);
+  }
 });
