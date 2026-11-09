@@ -6,6 +6,7 @@
 import { buildLibrary, variantSide } from '../core/library.js';
 import { createScheduler } from '../core/scheduler.js';
 import { createEngine } from '../core/engine.js';
+import { sequenceGapCycles } from '../core/tempo.js';
 import { computeJoints } from '../core/skeleton.js';
 import { CAPOEIRA } from '../core/moves/capoeira.js';
 import { createRenderer, STYLES, CORDAO } from '../render/renderer.js';
@@ -22,6 +23,8 @@ const DEFAULTS = {
   frequency: 5,
   duration: 120,
   help: true,
+  sequence: false,
+  seqMax: 3,
   style: 'abada',
   cordao: 'amarelo',
 };
@@ -34,6 +37,7 @@ function loadSettings() {
     if (!s.active.length) s.active = [...DEFAULTS.active];
     if (!STYLES[s.style]) s.style = DEFAULTS.style;
     if (!CORDAO[s.cordao]) s.cordao = DEFAULTS.cordao;
+    s.seqMax = Math.min(4, Math.max(2, Math.round(Number(s.seqMax)) || DEFAULTS.seqMax));
     return s;
   } catch {
     return { ...DEFAULTS };
@@ -62,6 +66,7 @@ let libraryRelaunchAt = null;
 let mode = 'home'; // home | countdown | training | paused | summary | library
 let elapsed = 0;
 let tally = {};
+let sequences = 0;
 let camX = 0;
 let viewLeft = 0;
 let viewBottom = 0;
@@ -125,6 +130,7 @@ function bindRange(id, key) {
     out.textContent = input.value;
     if (key === 'speed') idle.setOptions({ speed: settings.speed });
     saveSettings();
+    renderHints();
   });
 }
 
@@ -177,6 +183,30 @@ function renderSwatches() {
 renderMoves();
 bindRange('speed', 'speed');
 bindRange('frequency', 'frequency');
+
+function sequenceOption() {
+  return settings.sequence ? { min: 2, max: settings.seqMax } : null;
+}
+
+function renderHints() {
+  const cycles = sequenceGapCycles(settings.frequency);
+  const gingas = cycles < 1.5 ? 'una ginga' : `unas ${Math.round(cycles)} gingas`;
+  $('mode-hint').textContent = settings.sequence
+    ? `Encadena de 2 a ${settings.seqMax} movimientos sin ginga entre medias, y luego hace ${gingas} antes de la siguiente secuencia (lo marca la frecuencia).`
+    : 'Un movimiento, ginga, otro movimiento. Para encadenarlos sin ginga, usa Secuencias.';
+  $('frequency-hint').textContent = settings.sequence
+    ? 'En Secuencias marca las gingas entre una secuencia y la siguiente.'
+    : 'Aunque la pongas al máximo sigue habiendo algo de ginga entre ataques: para quitarla del todo, usa Secuencias.';
+  $('seq-box').hidden = !settings.sequence;
+}
+
+bindSegmented('mode', () => (settings.sequence ? 'sequence' : 'single'), (v) => {
+  settings.sequence = v === 'sequence';
+  saveSettings();
+  renderHints();
+});
+bindSegmented('seq-max', () => settings.seqMax, (v) => { settings.seqMax = Number(v); saveSettings(); renderHints(); });
+renderHints();
 bindSegmented('duration', () => settings.duration, (v) => { settings.duration = Number(v); saveSettings(); });
 $('help').checked = settings.help;
 $('help').addEventListener('change', () => { settings.help = $('help').checked; saveSettings(); });
@@ -222,10 +252,10 @@ function hideCue() {
   for (const id of ['glow-left', 'glow-right', 'glow-center']) $(id).classList.remove('show');
 }
 
-function showCue(variant, seconds) {
+function showCue(variant, seconds, seqIndex = 0, seqLength = 1) {
   hideCue();
   const side = variantSide(variant);
-  $('cue').textContent = variant.label;
+  $('cue').textContent = seqLength > 1 ? `${variant.label}  ·  ${seqIndex + 1}/${seqLength}` : variant.label;
   $('cue').classList.add('show');
   const glow = variant.travels ? `glow-${variant.travels}` : `glow-${side}`;
   if ($(glow)) $(glow).classList.add('show');
@@ -238,7 +268,8 @@ function onTrainingEvent(e) {
   const side = variantSide(e.variant);
   const row = (tally[e.variant.moveId] ??= { left: 0, center: 0, right: 0 });
   row[side] += 1;
-  if (settings.help) showCue(e.variant, e.variant.duration * training.timing.moveScale);
+  if (e.seqIndex === 0) sequences += 1;
+  if (settings.help) showCue(e.variant, training.duration(e.variant), e.seqIndex, e.seqLength);
 }
 
 function startRound() {
@@ -247,10 +278,12 @@ function startRound() {
   training = createEngine(lib, {
     speed: settings.speed,
     frequency: settings.frequency,
+    sequence: sequenceOption(),
     scheduler: createScheduler(lib, { active: settings.active, seed: (Date.now() ^ 0x5f3759df) >>> 0 }),
     onEvent: onTrainingEvent,
   });
   tally = {};
+  sequences = 0;
   elapsed = 0;
   updateTimer();
   setMode('countdown');
@@ -290,7 +323,8 @@ function finishRound() {
   const total = Object.values(tally).reduce((s, r) => s + r.left + r.center + r.right, 0);
   const mins = Math.floor(elapsed / 60);
   const secs = Math.round(elapsed % 60);
-  $('summary-line').textContent = `${total} ${total === 1 ? 'movimiento' : 'movimientos'} en ${mins}:${String(secs).padStart(2, '0')}.`;
+  const inSeqs = settings.sequence && sequences ? ` (${sequences} ${sequences === 1 ? 'secuencia' : 'secuencias'})` : '';
+  $('summary-line').textContent = `${total} ${total === 1 ? 'movimiento' : 'movimientos'}${inSeqs} en ${mins}:${String(secs).padStart(2, '0')}.`;
   const body = $('summary-body');
   body.textContent = '';
   for (const m of CAPOEIRA.moves) {
@@ -403,7 +437,7 @@ function frame(now) {
   }
 
   const eng = activeEngine();
-  const { joints } = computeJoints(eng.pose());
+  const { joints, headM } = computeJoints(eng.pose());
   const targetX = eng.state.mode === 'base' ? eng.state.anchor[0] : camX;
   camX += (targetX - camX) * (1 - Math.exp(-dt / 0.9));
   // With a side panel open on a wide screen, frame the figure in the free area to its right.
@@ -416,6 +450,7 @@ function frame(now) {
   viewLeft += (targetLeft - viewLeft) * ease;
   viewBottom += (targetBottom - viewBottom) * ease;
   renderer.render(joints, {
+    headM,
     camX,
     focusX: joints.pelvis[0],
     viewLeft,

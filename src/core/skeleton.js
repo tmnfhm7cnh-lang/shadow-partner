@@ -6,6 +6,7 @@
  *   {
  *     root:  { p: [x, y, z], r: [yaw, pitch, roll] },   // pelvis centre, world frame
  *     spine: [yaw, pitch, roll],                          // chest relative to pelvis
+ *     head:  [yaw, pitch, roll],                          // optional: head relative to chest (default 0)
  *     targets: { lFoot, rFoot, lHand, rHand },            // world positions ([x, y, z])
  *     poles:   { lKnee, rKnee, lElbow, rElbow },          // world directions the joint bends towards
  *   }
@@ -47,7 +48,16 @@ export const LIMBS = Object.freeze({
  */
 export const SOFT_IK = 0.03;
 
-export function solveTwoBone(rootPos, target, lenA, lenB, poleDir) {
+/**
+ * `fallback`: where the joint should bend when the pole gives no usable direction. A pole parallel
+ * to the limb says nothing about WHICH side to bend to, and the perpendicular it leaves behind swings
+ * wildly around that point (the elbow flips in one frame). Within PARALLEL_BLEND (as sin of the angle)
+ * of parallel, the bend direction is a smooth mix of the pole's and `fallback`, all fallback at exactly
+ * parallel, so the joint moves continuously through the degenerate pose. Beyond it the pole rules.
+ */
+export const PARALLEL_BLEND = 0.5;
+
+export function solveTwoBone(rootPos, target, lenA, lenB, poleDir, fallback = null) {
   const toTarget = sub(target, rootPos);
   let d = length(toTarget);
   const u = d < 1e-9 ? [0, -1, 0] : scale(toTarget, 1 / d);
@@ -60,6 +70,16 @@ export function solveTwoBone(rootPos, target, lenA, lenB, poleDir) {
   const along = (lenA * lenA - lenB * lenB + d * d) / (2 * d);
   const h = Math.sqrt(Math.max(0, lenA * lenA - along * along));
   let bend = sub(poleDir, scale(u, dot(poleDir, u)));
+  if (fallback) {
+    const sinAngle = length(bend); // 1 when the pole is perpendicular to the limb, 0 when parallel
+    if (sinAngle < PARALLEL_BLEND) {
+      const k = sinAngle / PARALLEL_BLEND;
+      const trust = k * k * (3 - 2 * k); // 0 → ignore the pole, 1 → use it as is
+      const fb = normalize(sub(fallback, scale(u, dot(fallback, u))));
+      const own = sinAngle < 1e-9 ? [0, 0, 0] : scale(bend, 1 / sinAngle);
+      bend = add(scale(fb, 1 - trust), scale(own, trust));
+    }
+  }
   if (length(bend) < 1e-6) {
     // Pole parallel to the limb: pick any perpendicular, deterministic.
     bend = cross(u, Math.abs(u[0]) < 0.9 ? [1, 0, 0] : [0, 0, 1]);
@@ -89,6 +109,7 @@ export function rotateDownTo(s, v) {
 export function computeJoints(pose, dims = DIMS) {
   const rootM = eulerToMatrix(pose.root.r);
   const chestM = matMul(rootM, eulerToMatrix(pose.spine));
+  const headM = pose.head ? matMul(chestM, eulerToMatrix(pose.head)) : chestM;
   const pelvis = pose.root.p;
   const inRoot = (v) => add(pelvis, matVec(rootM, v));
 
@@ -99,7 +120,7 @@ export function computeJoints(pose, dims = DIMS) {
     pelvis,
     chest,
     neck: inChest([0, dims.neck, 0]),
-    head: inChest([0, dims.neck + dims.headRadius * 1.05, 0.01]),
+    head: add(inChest([0, dims.neck, 0]), matVec(headM, [0, dims.headRadius * 1.05, 0.01])),
     lHip: inRoot([dims.hipHalfWidth, -dims.hipDrop, 0]),
     rHip: inRoot([-dims.hipHalfWidth, -dims.hipDrop, 0]),
     lShoulder: inChest([dims.shoulderHalfWidth, -0.02, 0]),
@@ -107,8 +128,14 @@ export function computeJoints(pose, dims = DIMS) {
   };
 
   for (const [name, limb] of Object.entries(LIMBS)) {
+    const side = name[0] === 'l' ? 1 : -1;
+    // A hand beside the shoulder cannot bend the elbow outwards: it drops down and back (chest frame).
+    // A raised leg bends the knee up and forward (pelvis frame).
+    const fallback = name.endsWith('Hand')
+      ? matVec(chestM, [side * 0.2, -1, -0.5])
+      : matVec(rootM, [side * 0.25, 0.6, 1]);
     const { mid, end } = solveTwoBone(
-      j[limb.root], pose.targets[name], dims[limb.a], dims[limb.b], pose.poles[limb.pole],
+      j[limb.root], pose.targets[name], dims[limb.a], dims[limb.b], pose.poles[limb.pole], fallback,
     );
     j[limb.mid] = mid;
     j[name] = end;
@@ -132,7 +159,7 @@ export function computeJoints(pose, dims = DIMS) {
     j[`${side}Toe`] = [0, 1, 2].map((c) => flatToe[c] + (airToe[c] - flatToe[c]) * w);
   }
 
-  return { joints: j, rootM, chestM };
+  return { joints: j, rootM, chestM, headM };
 }
 
 /** Segments that keep a fixed length whatever the pose (used by tests and by the renderer). */

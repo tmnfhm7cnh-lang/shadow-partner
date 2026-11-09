@@ -19,6 +19,8 @@
 
 import { add, lerp, lerp3, matVec, eulerToMatrix, easeInOut, normalize, unwrapNear } from './math.js';
 import { pchip, pchipLoop, segmentAt } from './interp.js';
+import { DIMS } from './skeleton.js';
+import { matMul, clamp } from './math.js';
 
 export const W = (x, y, z) => ({ f: 'w', v: [x, y, z] });
 export const L = (x, y, z) => ({ f: 'l', v: [x, y, z] });
@@ -154,6 +156,60 @@ export function blendPoses(a, b, t) {
     targets,
     poles,
   };
+}
+
+const transposeM = (m) => [m[0], m[3], m[6], m[1], m[4], m[7], m[2], m[5], m[8]];
+const smoothstep = (x) => { const k = clamp(x, 0, 1); return k * k * (3 - 2 * k); };
+
+/** Unit-vector interpolation at constant angular speed (a plain lerp collapses through zero). */
+function slerpDir(a, b, t) {
+  const c = clamp(a[0] * b[0] + a[1] * b[1] + a[2] * b[2], -1, 1);
+  const ang = Math.acos(c);
+  if (ang < 1e-4) return normalize(lerp3(a, b, t));
+  if (Math.PI - ang < 1e-3) return normalize(lerp3(a, b, t)); // opposite: no unique path, any is as good
+  const sa = Math.sin((1 - t) * ang) / Math.sin(ang);
+  const sb = Math.sin(t * ang) / Math.sin(ang);
+  return [a[0] * sa + b[0] * sb, a[1] * sa + b[1] * sb, a[2] * sa + b[2] * sb];
+}
+
+/**
+ * Blend two UNRELATED poses (the link between two chained moves). Root and spine are blended first;
+ * then each hand travels relative to the chest and each airborne foot relative to the pelvis, so the
+ * limbs follow the body instead of cutting straight through it in world space (which folded the arm
+ * onto itself as the hand crossed the shoulder). A foot on the floor in both poses still travels in
+ * the world, so supports do not slide with the body.
+ */
+export function blendPosesLocal(a, b, t) {
+  const root = { p: lerp3(a.root.p, b.root.p, t), r: a.root.r.map((v, i) => lerp(v, b.root.r[i], t)) };
+  const spine = a.spine.map((v, i) => lerp(v, b.spine[i], t));
+  const frames = (pose) => {
+    const rootM = eulerToMatrix(pose.root.r);
+    const chestM = matMul(rootM, eulerToMatrix(pose.spine));
+    return { rootM, chestM, chest: add(pose.root.p, matVec(chestM, [0, DIMS.spine, 0])) };
+  };
+  const fa = frames(a), fb = frames(b), ft = frames({ root, spine });
+  const local = (M, origin, v) => matVec(transposeM(M), [v[0] - origin[0], v[1] - origin[1], v[2] - origin[2]]);
+  const targets = {};
+  for (const name of Object.keys(a.targets)) {
+    const isHand = name.endsWith('Hand');
+    const [Ma, Oa, Mb, Ob, Mt, Ot] = isHand
+      ? [fa.chestM, fa.chest, fb.chestM, fb.chest, ft.chestM, ft.chest]
+      : [fa.rootM, a.root.p, fb.rootM, b.root.p, ft.rootM, root.p];
+    const la = local(Ma, Oa, a.targets[name]);
+    const lb = local(Mb, Ob, b.targets[name]);
+    const viaBody = add(Ot, matVec(Mt, lerp3(la, lb, t)));
+    let v = viaBody;
+    if (!isHand) {
+      const viaWorld = lerp3(a.targets[name], b.targets[name], t);
+      viaWorld[1] += stepLift(a.targets[name], b.targets[name], t);
+      const air = smoothstep((Math.max(a.targets[name][1], b.targets[name][1]) - 0.12) / 0.2);
+      v = lerp3(viaWorld, viaBody, air);
+    }
+    targets[name] = v;
+  }
+  const poles = {};
+  for (const name of Object.keys(a.poles)) poles[name] = slerpDir(normalize(a.poles[name]), normalize(b.poles[name]), t);
+  return { root, spine, targets, poles };
 }
 
 /**

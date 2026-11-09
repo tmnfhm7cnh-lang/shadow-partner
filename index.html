@@ -55,7 +55,25 @@
     <div class="group">
       <div class="label-row"><label class="label" for="frequency">Frecuencia</label><output id="frequency-out"></output></div>
       <input id="frequency" type="range" min="1" max="10" step="1">
-      <div class="scale"><span>mucha ginga entre ataques</span><span>sin respiro</span></div>
+      <div class="scale"><span>mucha ginga entre ataques</span><span>poca ginga</span></div>
+      <p id="frequency-hint" class="hint"></p>
+    </div>
+
+    <div class="group">
+      <div class="label-row"><span class="label">Modo</span></div>
+      <div id="mode" class="segmented" role="radiogroup">
+        <button type="button" data-v="single">Sueltos</button>
+        <button type="button" data-v="sequence">Secuencias</button>
+      </div>
+      <div id="seq-box" hidden>
+        <div class="label-row sub"><span class="label">Hasta cuántos seguidos</span></div>
+        <div id="seq-max" class="segmented" role="radiogroup">
+          <button type="button" data-v="2">2</button>
+          <button type="button" data-v="3">3</button>
+          <button type="button" data-v="4">4</button>
+        </div>
+      </div>
+      <p id="mode-hint" class="hint"></p>
     </div>
 
     <div class="group">

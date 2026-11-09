@@ -14,6 +14,15 @@ export function moveScale(speed) {
   return 2 ** ((5 - level(speed)) / 4.5);
 }
 
+/**
+ * Multiplier on one move's authored duration. `weight` says how much that move follows the speed
+ * control: 1 = fully (a kick can be as fast as you like), 0 = not at all. A wheel (au) or a handstand
+ * has a physical floor on how fast it can be done, so it follows the control only partly.
+ */
+export function moveDurationScale(speed, weight = 1) {
+  return moveScale(speed) ** weight;
+}
+
 /** Multiplier on the base loop period. Gentler than moves: a frantic ginga reads as noise. */
 export function baseScale(speed) {
   return 2 ** ((5 - level(speed)) / 7);
@@ -25,10 +34,17 @@ export function gapRange(frequency) {
   return { min: 5 * (0.4 / 5) ** f, max: 8 * (1.6 / 8) ** f };
 }
 
+/** Full ginga cycles between one sequence and the next: 4 at frequency 1, 1 at frequency 10. */
+export function sequenceGapCycles(frequency) {
+  const f = (level(frequency) - 1) / 9;
+  return 4 * 0.25 ** f;
+}
+
 export function timing({ speed = 5, frequency = 5, basePeriod = 2 }) {
   return {
     period: basePeriod * baseScale(speed),
     moveScale: moveScale(speed),
     gap: gapRange(frequency),
+    sequenceGap: sequenceGapCycles(frequency) * basePeriod * baseScale(speed),
   };
 }

@@ -250,6 +250,7 @@ export const MOVES = [
     arrivesFrom: 'right',
     launchPhases: [RIGHT_BACK],
     duration: 1.7,
+    tempoWeight: 0.75, // a low spinning move: it cannot be done as fast as a straight kick
     keys: [
       {
         t: 0.14,
@@ -287,7 +288,8 @@ export const MOVES = [
     height: 'mid',
     travels: 'right',
     launchPhases: [PARALLEL],
-    duration: 2.0,
+    duration: 2.3,
+    tempoWeight: 0.35, // a wheel has a physical floor: at top speed it is barely faster, not twice as fast
     endOffset: [1.62, 0, 0],
     // A wheel in the frontal plane, always facing the user. Rolling towards +x (the figure's
     // left): left hand, right hand, right foot, left foot. Legs in the pelvis frame while in the
@@ -334,6 +336,8 @@ export const MOVES = [
     mirror: false,
     launchPhases: [PARALLEL, 0.5],
     duration: 3.6,
+    tempoWeight: 0.4,
+    chainIn: false, // entering a handstand needs the ginga's stance: it never comes in the middle of a sequence
     keys: [
       {
         t: 0.12,
