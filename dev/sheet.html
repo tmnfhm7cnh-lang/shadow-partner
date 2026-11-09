@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Contact sheet</title>
+  <style>
+    body { margin: 0; background: #0b0e13; color: #ccd; font: 12px system-ui; }
+    .grid { display: grid; grid-template-columns: repeat(var(--cols), 1fr); gap: 2px; }
+    .cell { position: relative; aspect-ratio: 3 / 4; }
+    .cell canvas { width: 100%; height: 100%; display: block; }
+    .cell b { position: absolute; left: 4px; top: 2px; }
+    h1 { font-size: 14px; margin: 4px 6px; }
+  </style>
+</head>
+<body>
+  <!-- Dev only: frames of one move side by side, from the user's point of view and from the side.
+       Usage: dev/sheet.html?v=armada&n=8 -->
+  <h1 id="title"></h1>
+  <div id="front" class="grid"></div>
+  <div id="side" class="grid"></div>
+  <script type="module">
+    import { buildLibrary } from '../src/core/library.js';
+    import { previewPose } from '../src/core/engine.js';
+    import { computeJoints } from '../src/core/skeleton.js';
+    import { CAPOEIRA } from '../src/core/moves/capoeira.js';
+    import { createRenderer } from '../src/render/renderer.js';
+
+    const q = new URLSearchParams(location.search);
+    const lib = buildLibrary(CAPOEIRA);
+    const v = lib.get(q.get('v') ?? 'armada');
+    const n = Number(q.get('n') ?? 8);
+    const from = Number(q.get('from') ?? 0);
+    const to = Number(q.get('to') ?? 1);
+    document.documentElement.style.setProperty('--cols', n);
+    document.getElementById('title').textContent = `${v.variantId} — ${v.label} (u ${from}→${to})`;
+
+    // Side view: rotate the world 90° about y so the camera sees the figure's profile.
+    const toSide = (j) => Object.fromEntries(Object.entries(j).map(([k, p]) => [k, [-p[2], p[1], p[0]]]));
+
+    for (const [rowId, transform] of [['front', (j) => j], ['side', toSide]]) {
+      const row = document.getElementById(rowId);
+      for (let i = 0; i < n; i++) {
+        const u = from + ((to - from) * i) / (n - 1);
+        const cell = document.createElement('div');
+        cell.className = 'cell';
+        const c = document.createElement('canvas');
+        const label = document.createElement('b');
+        label.textContent = `${rowId} u=${u.toFixed(2)}`;
+        cell.append(c, label);
+        row.appendChild(cell);
+        const r = createRenderer(c);
+        const j = transform(computeJoints(previewPose(lib, v, u)).joints);
+        const cx = rowId === 'front' ? j.pelvis[0] : j.pelvis[0];
+        r.render(j, { camX: cx, focusX: cx });
+      }
+    }
+  </script>
+</body>
+</html>

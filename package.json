@@ -1,0 +1,10 @@
+{
+  "name": "shadow-partner",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Shadow-sparring partner: an animated figure throws random martial-arts moves for solo training.",
+  "scripts": {
+    "test": "node --test \"test/**/*.test.js\""
+  }
+}
