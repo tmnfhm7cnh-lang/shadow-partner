@@ -32,6 +32,8 @@ point of view and in profile, to review key poses.
     sequences (moves chained with no ginga between them, then a gap of ginga).
   - `secondary.js` — secondary motion on top of the authored pose: the head looks at the user and
     stays level, chest / hands / feet follow with a small lag (limbs on the floor never move).
+    In kicks the hips take part too: weight over the standing leg, pelvis opens towards the
+    kicking leg, trunk leans away from it.
 - `src/render/` — perspective camera and canvas renderer (stage, shadow, depth-sorted limbs).
 - `src/ui/` — screens, wake lock, fullscreen, audio cues.
 
@@ -46,6 +48,9 @@ Optional fields on a move:
 
 - `tempoWeight` (default 1): how much the move follows the speed control. A wheel or a handstand
   has a physical floor on how fast it can be done, so it follows only partly (au 0.35).
+- `alt: [...]`: other ways of doing the same move (own `keys`, `duration`, `entry` name). Each becomes
+  variants of the move (and their mirrors) and is drawn like any other: the bananeira goes up as half
+  a lateral wheel, side-on, or turning its back first.
 - `chainIn: false`: the move cannot come in the middle of a sequence (a handstand needs the ginga's
   stance); it opens the next sequence instead.
 
