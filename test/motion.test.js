@@ -8,6 +8,7 @@ import { createScheduler } from '../src/core/scheduler.js';
 import { createEngine } from '../src/core/engine.js';
 import { moveDurationScale, sequenceGapCycles, timing } from '../src/core/tempo.js';
 import { CAPOEIRA } from '../src/core/moves/capoeira.js';
+import { followX } from '../src/render/camera.js';
 
 const lib = buildLibrary(CAPOEIRA);
 const all = CAPOEIRA.moves.map((m) => m.id);
@@ -307,5 +308,37 @@ test('hip drive: the kick still reaches the height it was authored for (the hips
       peakShown = Math.max(peakShown, shown.rFoot[1]);
     }
     assert.ok(Math.abs(peakShown - peakRaw) < 0.12, `${id}: kick height ${peakRaw.toFixed(2)} → ${peakShown.toFixed(2)}`);
+  }
+});
+
+// ── camera follows the figure ───────────────────────────────────────────────
+
+test('camera: no joint ever gets closer than 0.35 m to the edge of a 3.4 m wide frame, in any move, at any speed', () => {
+  const HALF = 1.7;
+  const margin = (follow, speed, variant) => {
+    const engine = createEngine(lib, { speed });
+    engine.trigger(variant);
+    let camX = 0;
+    let worst = -Infinity;
+    let started = false;
+    for (let i = 0; i < 14 * 60; i++) {
+      engine.update(DT);
+      if (engine.state.mode === 'move') started = true;
+      const { joints } = computeJoints(engine.pose());
+      camX = follow
+        ? followX(camX, { anchorX: engine.state.anchor[0], pelvisX: joints.pelvis[0], moving: engine.state.mode === 'move', dt: DT })
+        : camX;
+      for (const p of Object.values(joints)) worst = Math.max(worst, Math.abs(p[0] - camX));
+      if (started && engine.state.mode === 'base' && i > 30) break;
+    }
+    return HALF - worst;
+  };
+  const au = lib.byMove('au')[0];
+  assert.ok(margin(false, 5, au) < 0.35, 'sanity: with a fixed camera the au does come close to the edge');
+  for (const variant of lib.variants) {
+    for (const speed of [1, 5, 10]) {
+      const m = margin(true, speed, variant);
+      assert.ok(m >= 0.35, `${variant.variantId} speed ${speed}: only ${m.toFixed(2)} m from the edge`);
+    }
   }
 });

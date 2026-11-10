@@ -38,3 +38,19 @@ export function createCamera({ width, height: fullHeight, targetX = 0, viewLeft 
     },
   };
 }
+
+/** Metres the figure may drift from the camera's centre before the camera starts to follow it. */
+export const FOLLOW_SLACK = 0.25;
+
+/**
+ * Next camera x. Between moves it eases to the figure's anchor (slow, so the ginga does not pull the
+ * view around). During a move it follows the pelvis as soon as it leaves a small slack zone around
+ * the centre, quickly enough that an au (1.6 m sideways, hands and legs reaching further) never
+ * leaves the frame, and a kick that stays in place does not move the view at all.
+ */
+export function followX(camX, { anchorX, pelvisX, moving, dt }) {
+  if (!moving) return camX + (anchorX - camX) * (1 - Math.exp(-dt / 0.9));
+  const off = pelvisX - camX;
+  const excess = Math.sign(off) * Math.max(0, Math.abs(off) - FOLLOW_SLACK);
+  return camX + excess * (1 - Math.exp(-dt / 0.18));
+}

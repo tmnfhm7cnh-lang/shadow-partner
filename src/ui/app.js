@@ -10,6 +10,7 @@ import { sequenceGapCycles } from '../core/tempo.js';
 import { computeJoints } from '../core/skeleton.js';
 import { CAPOEIRA } from '../core/moves/capoeira.js';
 import { createRenderer, STYLES, CORDAO } from '../render/renderer.js';
+import { followX } from '../render/camera.js';
 import { unlockAudio, beep, go, bell } from './audio.js';
 
 const lib = buildLibrary(CAPOEIRA);
@@ -438,8 +439,7 @@ function frame(now) {
 
   const eng = activeEngine();
   const { joints, headM } = computeJoints(eng.pose());
-  const targetX = eng.state.mode === 'base' ? eng.state.anchor[0] : camX;
-  camX += (targetX - camX) * (1 - Math.exp(-dt / 0.9));
+  camX = followX(camX, { anchorX: eng.state.anchor[0], pelvisX: joints.pelvis[0], moving: eng.state.mode === 'move', dt });
   // With a side panel open on a wide screen, frame the figure in the free area to its right.
   const panel = ['home', 'summary', 'library'].includes(mode) ? $(mode) : null;
   const wide = window.innerWidth >= 760;
